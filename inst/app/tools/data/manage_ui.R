@@ -156,9 +156,33 @@ observeEvent(input$to_global_save, {
 })
 
 output$ui_Manage <- renderUI({
-  data_types_in <- c(
+  data_types_in <<- c(
     "rds | rda | rdata" = "rds", "csv" = "csv",
     "clipboard" = "clipboard", "examples" = "examples",
+
+    # inputs for m2m brfss datasets
+    "Trends for Behavioral Risk Factor Surveillance System" = "brfsstrends",
+    "Behavioral Risk Factor Surveillance System 2019" = "brfss19",
+    "Behavioral Risk Factor Surveillance System 2015" = "brfss15",
+    "Behavioral Risk Factor Surveillance System 2014" = "brfss14",
+    "Behavioral Risk Factor Surveillance System 2013" = "brfss13",
+    "Behavioral Risk Factor Surveillance System 2012" = "brfss12",
+
+    # inputs for m2m yrbs datasets
+    "Trends for Youth Risk Behavior Surveillance" = "yrbstrends",
+    "Youth Risk Behavior Surveillance US 2017" = "yrbsus17",
+    "Youth Risk Behavior Surveillance US 2017" = "yrbsus17",
+    "Youth Risk Behavior Surveillance US 2015" = "yrbsus15",
+    "Youth Risk Behavior Surveillance US 2015" = "yrbsus13",
+
+    "Youth Risk Behavior Surveillance PR 2017" = "yrbspr17",
+    "Youth Risk Behavior Surveillance PR 2015" = "yrbspr15",
+    "Youth Risk Behavior Surveillance PR 2013" = "yrbspr13",
+
+    # inputs for m2m nhis datasets
+    "Trends for National Health Interview Survey" = "nhistrends",
+    "National Health Interview Survey 2019" = "nhis19",
+
     "rds (url)" = "url_rds", "csv (url)" = "url_csv",
     "feather" = "feather", "from global workspace" = "from_global",
     "radiant state file" = "state"
@@ -182,7 +206,27 @@ output$ui_Manage <- renderUI({
       selectInput("dataType", label = "Load data of type:", data_types_in, selected = "rds"),
       conditionalPanel(
         condition = "input.dataType != 'clipboard' &&
-                     input.dataType != 'examples'",
+                     input.dataType != 'examples' &&
+
+                     input.dataType != 'brfsstrends' &&
+                     input.dataType != 'brfss19' &&
+                     input.dataType != 'brfss15' &&
+                     input.dataType != 'brfss14' &&
+                     input.dataType != 'brfss13' &&
+                     input.dataType != 'brfss12' &&
+
+                     input.dataType != 'yrbstrends' &&
+                     input.dataType != 'yrbsus17' &&
+                     input.dataType != 'yrbsus15' &&
+                     input.dataType != 'yrbsus13' &&
+
+                     input.dataType != 'yrbspr17' &&
+                     input.dataType != 'yrbspr15' &&
+                     input.dataType != 'yrbspr13' &&
+
+                     input.dataType != 'nhistrends' &&
+                     input.dataType != 'nhis19'",
+
         conditionalPanel(
           "input.dataType == 'csv' || input.dataType == 'url_csv'",
           with(tags, table(
@@ -211,7 +255,27 @@ output$ui_Manage <- renderUI({
         uiOutput("ui_from_global")
       ),
       conditionalPanel(
-        condition = "input.dataType == 'examples'",
+        condition = "input.dataType == 'examples' ||
+
+                     input.dataType == 'brfsstrends' ||
+                     input.dataType == 'brfss19' ||
+                     input.dataType == 'brfss15' ||
+                     input.dataType == 'brfss14' ||
+                     input.dataType == 'brfss13' ||
+                     input.dataType == 'brfss12' ||
+
+                     input.dataType == 'yrbstrends' ||
+                     input.dataType == 'yrbsus17' ||
+                     input.dataType == 'yrbsus15' ||
+                     input.dataType == 'yrbsus13' ||
+
+                     input.dataType == 'yrbspr17' ||
+                     input.dataType == 'yrbspr15' ||
+                     input.dataType == 'yrbspr13' ||
+
+                     input.dataType == 'nhistrends' ||
+                     input.dataType == 'nhis19'",
+
         actionButton("loadExampleData", "Load", icon = icon("upload"))
       ),
       conditionalPanel(
@@ -586,6 +650,46 @@ observeEvent(input$url_csv_load, {
 
 ## loading all examples files (linked to help files)
 observeEvent(input$loadExampleData, {
+  source("../../inst/app/m2mdata/m2m_funs.R")
+  m2mid = input$dataType
+  # print(paste0("selected: ", dataid))
+  dataset <- m2m_dataset(m2mid)
+  m2mext <- m2m_ext(names(which(data_types_in == m2mid)))
+
+  if(m2mid != "examples"){
+    # code comes from load_clip section
+      objname <- m2mext[[1]]
+      cmd <- glue(m2mext[[2]])
+      ret <- glue(m2mext[[3]])
+
+      cn <- colnames(dataset)
+      fn <- radiant.data::fix_names(cn)
+
+      if (!identical(cn, fn)) {
+        colnames(dataset) <- fn
+        cmd <- paste0(cmd, " %>% fix_names()")
+      }
+
+      r_data[[objname]] <- dataset
+      r_info[[paste0(objname, "_lcmd")]] <- glue('{cmd}\nregister("{objname}")')
+
+      if (exists(objname, envir = r_data) && !bindingIsActive(as.symbol(objname), env = r_data)) {
+        shiny::makeReactiveBinding(objname, env = r_data)
+      }
+
+      r_info[[paste0(objname, "_descr")]] <- ret
+      r_info[["datasetlist"]] <- c(objname, r_info[["datasetlist"]]) %>% unique()
+
+      updateSelectInput(
+        session, "dataset",
+        label = "Datasets:",
+        choices = r_info[["datasetlist"]],
+        selected = objname
+      )
+
+    # start of original load example data code ----
+  }else{
+
   ## data.frame of example datasets
   exdat <- data(package = getOption("radiant.example.data"))$results[, c("Package", "Item")]
   for (i in seq_len(nrow(exdat))) {
@@ -602,7 +706,6 @@ observeEvent(input$loadExampleData, {
       r_info[["dtree_list"]] <- c(item, r_info[["dtree_list"]]) %>% unique()
     }
   }
-
   ## sorting files alphabetically
   r_info[["datasetlist"]] <- sort(r_info[["datasetlist"]])
 
@@ -611,6 +714,10 @@ observeEvent(input$loadExampleData, {
     choices = r_info[["datasetlist"]],
     selected = r_info[["datasetlist"]][1]
   )
+
+  } #end of original load example data code
+
+
 })
 
 observeEvent(input$loadClipData, {
